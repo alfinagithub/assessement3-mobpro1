@@ -80,12 +80,18 @@ fun ListItem(makanan: Makanan) {
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(MakananApi.getMakananUrl(makanan.imageId))
+                .data(
+                    if (makanan.nama == "Ayam")
+                        MakananApi.getMakananUrl("not-found")
+                    else
+                        MakananApi.getMakananUrl(makanan.imageId)
+                )
                 .crossfade(true)
                 .build(),
             contentDescription = stringResource(R.string.gambar, makanan.nama),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
+            error = painterResource(id = R.drawable.baseline_broken_image_24),
             modifier = Modifier.fillMaxWidth().padding(4.dp)
         )
         Column(
