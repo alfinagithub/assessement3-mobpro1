@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -94,6 +97,9 @@ fun MainScreen() {
 
     var showDialog by remember { mutableStateOf(false) }
     var showMakananDialog by remember { mutableStateOf(false) }
+    var showDialogDelete by remember { mutableStateOf(false) }
+
+    var makananToDelete by remember { mutableStateOf<Makanan?>(null) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
@@ -147,7 +153,10 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
-        ScreenContent(viewModel, Modifier.padding(innerPadding))
+        ScreenContent(viewModel, user.email, Modifier.padding(innerPadding)) { makanan ->
+            makananToDelete = makanan
+            showDialogDelete = true
+        }
 
         if (showDialog) {
             ProfilDialog(
@@ -166,6 +175,14 @@ fun MainScreen() {
                 showMakananDialog = false
             }
         }
+        if (showDialogDelete) {
+            DisplayAlertDialog(
+                onDismissRequest = { showDialogDelete = false },
+                onConfirmation = {
+                    makananToDelete?.let { viewModel.deleteMakanan(user.email, it.id) }
+                    showDialogDelete = false
+                })
+        }
 
         if (errorMessage != null) {
             Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
@@ -175,9 +192,13 @@ fun MainScreen() {
 }
 
 @Composable
-fun ScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
+fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier, onDeleteClick: (Makanan) -> Unit ) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
+
+    LaunchedEffect(userId) {
+        viewModel.retrieveData(userId)
+    }
 
     when (status) {
         ApiStatus.LOADING -> {
@@ -195,7 +216,7 @@ fun ScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(data) { ListItem(makanan = it) }
+                items(data) { ListItem(makanan = it) {onDeleteClick(it)} }
             }
         }
 
@@ -207,7 +228,7 @@ fun ScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             ) {
                 Text(text = stringResource(id = R.string.error))
                 Button(
-                    onClick = { viewModel.retrieveData() },
+                    onClick = { viewModel.retrieveData(userId) },
                     modifier = Modifier.padding(top = 16.dp),
                     contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
                 ) {
@@ -219,19 +240,14 @@ fun ScreenContent(viewModel: MainViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ListItem(makanan: Makanan) {
+fun ListItem(makanan: Makanan, onDeleteClick: () -> Unit = {}) {
     Box(
         modifier = Modifier.padding(4.dp).border(1.dp, Color.Gray),
         contentAlignment = Alignment.BottomCenter
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(
-                    if (makanan.nama == "Ayam")
-                        MakananApi.getMakananUrl("not-found")
-                    else
-                        MakananApi.getMakananUrl(makanan.imageId)
-                )
+                .data(MakananApi.getMakananUrl(makanan.imageId))
                 .crossfade(true)
                 .build(),
             contentDescription = stringResource(R.string.gambar, makanan.nama),
@@ -245,17 +261,33 @@ fun ListItem(makanan: Makanan) {
                 .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
                 .padding(4.dp)
         ) {
-            Text(
-                text = makanan.nama,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                text = makanan.namaLatin,
-                fontStyle = FontStyle.Italic,
-                fontSize = 14.sp,
-                color = Color.White
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                ) {
+                    Text(
+                        text = makanan.nama,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = makanan.namaLatin,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 14.sp,
+                        color = Color.White
+                    )
+                }
+                if (makanan.mine == "1") {
+                    IconButton(onClick = { onDeleteClick() }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(id = R.string.hapus)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -269,7 +301,6 @@ private suspend fun signIn(context: Context, dataStore: UserDataStore) {
     val request: GetCredentialRequest = GetCredentialRequest.Builder()
         .addCredentialOption(googleIdOption)
         .build()
-
     try {
         val credentialManager = CredentialManager.create(context)
         val result = credentialManager.getCredential(context, request)

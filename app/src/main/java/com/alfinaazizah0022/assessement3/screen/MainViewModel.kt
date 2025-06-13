@@ -27,15 +27,11 @@ class MainViewModel : ViewModel() {
     var errorMessage = mutableStateOf<String?>(null)
         private set
 
-    init {
-        retrieveData()
-    }
-
-    fun retrieveData() {
+    fun retrieveData(userId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             status.value = ApiStatus.LOADING
             try {
-                data.value = MakananApi.service.getMakanan()
+                data.value = MakananApi.service.getMakanan(userId)
                 status.value = ApiStatus.SUCCESS
             } catch (e: Exception) {
                 Log.d("MainViewModel", "Failure: ${e.message}")
@@ -55,7 +51,7 @@ class MainViewModel : ViewModel() {
                 )
 
                 if (result.status == "success")
-                    retrieveData()
+                    retrieveData(userId)
                 else
                     throw Exception(result.message)
             } catch (e: Exception) {
@@ -73,6 +69,24 @@ class MainViewModel : ViewModel() {
             "image/jpg".toMediaTypeOrNull(), 0, byteArray.size)
         return MultipartBody.Part.createFormData(
             "image", "image.jpg", requestBody)
+    }
+
+    fun deleteMakanan(userId: String, id: String) {
+        viewModelScope.launch {
+            try {
+                val result = MakananApi.service.deleteMakanan(
+                    userId, id
+                )
+
+                if (result.status == "success") {
+                    retrieveData(userId)
+                } else
+                    throw Exception(result.message)
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Failure: ${e.message}")
+                errorMessage.value = "Error: ${e.message}"
+            }
+        }
     }
 
     fun clearMessage() { errorMessage.value = null }
