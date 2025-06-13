@@ -1,11 +1,18 @@
 package com.alfinaazizah0022.assessement3.network
 
 import com.alfinaazizah0022.assessement3.model.Makanan
+import com.alfinaazizah0022.assessement3.model.OpStatus
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.POST
+import retrofit2.http.Part
 
 private const val BASE_URL = "https://gh.d3ifcool.org/"
 
@@ -21,6 +28,15 @@ private val retrofit = Retrofit.Builder()
 interface MakananApiService {
     @GET("hewan.php")
     suspend fun getMakanan(): List<Makanan>
+
+    @Multipart
+    @POST("hewan.php")
+    suspend fun postMakanan(
+        @Header("Authorization") userId: String,
+        @Part("nama") nama: RequestBody,
+        @Part("namaLatin") namaLatin: RequestBody,
+        @Part image: MultipartBody.Part
+    ): OpStatus
 }
 
 object MakananApi {
