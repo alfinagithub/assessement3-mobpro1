@@ -1,17 +1,21 @@
 <resources>
-    <string name="app_name">Assessement 3</string>
+    <string name="app_name">TanamTahu</string>
     <string name="gambar">Gambar %1$s</string>
     <string name="error">Gagal memuat data.. Koneksi error.</string>
     <string name="try_again">Coba lagi</string>
     <string name="profil">Profil</string>
     <string name="tutup">Tutup</string>
     <string name="logout">Logout</string>
-    <string name="tambah_makan">Tambah makan</string>
+    <string name="tambah_data">Tambah Data</string>
+    <string name="edit_data">Edit Data</string>
     <string name="nama">Nama</string>
-    <string name="nama_latin">Nama latin</string>
+    <string name="author">Nama Latin</string>
+    <string name="publisher">Asal</string>
+    <string name="year">Tahun Ditemukan</string>
     <string name="batal">Batal</string>
     <string name="simpan">Simpan</string>
     <string name="hapus">Hapus</string>
+    <string name="edit">Edit</string>
     <string name="pesan_hapus">Hapus makanan ini?</string>
     <string name="tombol_hapus">Hapus</string>
     <string name="tombol_batal">Batal</string>

@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -100,12 +101,14 @@ fun MainScreen() {
     var showDialogDelete by remember { mutableStateOf(false) }
 
     var makananToDelete by remember { mutableStateOf<Makanan?>(null) }
+    var makananToEdit by remember { mutableStateOf<Makanan?>(null) }
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
         if (bitmap != null) showMakananDialog = true
     }
+
 
     Scaffold(
         topBar = {
@@ -121,8 +124,7 @@ fun MainScreen() {
                     IconButton(onClick = {
                         if (user.email.isEmpty()) {
                             CoroutineScope(Dispatchers.IO).launch { signIn(context, dataStore) }
-                        }
-                        else {
+                        } else {
                             showDialog = true
                         }
                     }) {
@@ -148,20 +150,30 @@ fun MainScreen() {
             }) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(id = R.string.tambah_makan)
+                    contentDescription = stringResource(id = R.string.tambah_data)
                 )
             }
         }
     ) { innerPadding ->
-        ScreenContent(viewModel, user.email, Modifier.padding(innerPadding)) { makanan ->
-            makananToDelete = makanan
-            showDialogDelete = true
-        }
+        ScreenContent(
+            viewModel = viewModel,
+            userId = user.email,
+            modifier = Modifier.padding(innerPadding),
+            onDeleteClick = { makanan ->
+                makananToDelete = makanan
+                showDialogDelete = true
+            },
+            onEditClick = { makanan ->
+                makananToEdit = makanan
+                showMakananDialog = true
+                Log.d("reportId:", "$makanan")
+            }
+        )
 
         if (showDialog) {
             ProfilDialog(
                 user = user,
-                onDismissRequest = { showDialog = false}) {
+                onDismissRequest = { showDialog = false }) {
                 CoroutineScope(Dispatchers.IO).launch { signOut(context, dataStore) }
                 showDialog = false
             }
@@ -170,11 +182,31 @@ fun MainScreen() {
         if (showMakananDialog) {
             MakananDialog(
                 bitmap = bitmap,
-                onDismissRequest = { showMakananDialog = false }) { nama, namaLatin ->
-                viewModel.saveData(user.email, nama, namaLatin, bitmap!!)
+                makanan = makananToEdit,
+                onDismissRequest = {
+                    showMakananDialog = false
+                    makananToEdit = null
+                    bitmap = null
+                }) { title, author, publisher, year ->
+                if (makananToEdit == null) {
+                    viewModel.saveData(user.email, title, author, publisher, year, bitmap!!)
+                } else {
+                    viewModel.updateData(
+                        user.email,
+                        makananToEdit!!.id,
+                        title,
+                        author,
+                        publisher,
+                        year,
+                        bitmap
+                    )
+                }
                 showMakananDialog = false
+                makananToEdit = null
+                bitmap = null
             }
         }
+
         if (showDialogDelete) {
             DisplayAlertDialog(
                 onDismissRequest = { showDialogDelete = false },
@@ -191,8 +223,16 @@ fun MainScreen() {
     }
 }
 
+
+
 @Composable
-fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier, onDeleteClick: (Makanan) -> Unit ) {
+fun ScreenContent(
+    viewModel: MainViewModel,
+    userId: String,
+    modifier: Modifier = Modifier,
+    onDeleteClick: (Makanan) -> Unit,
+    onEditClick: (Makanan) -> Unit
+) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
 
@@ -209,17 +249,23 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
                 CircularProgressIndicator()
             }
         }
-
         ApiStatus.SUCCESS -> {
             LazyVerticalGrid(
-                modifier = modifier.fillMaxSize().padding(4.dp),
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(data) { ListItem(makanan = it) {onDeleteClick(it)} }
+                items(data) { makanan ->
+                    ListItem(
+                        makanan = makanan,
+                        onDeleteClick = { onDeleteClick(makanan) },
+                        onEditClick = { onEditClick(makanan) }
+                    )
+                }
             }
         }
-
         ApiStatus.FAILED -> {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -239,10 +285,13 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
     }
 }
 
+
 @Composable
-fun ListItem(makanan: Makanan, onDeleteClick: () -> Unit = {}) {
+fun ListItem(makanan: Makanan, onDeleteClick: () -> Unit = {}, onEditClick: () -> Unit = {}) {
     Box(
-        modifier = Modifier.padding(4.dp).border(1.dp, Color.Gray),
+        modifier = Modifier
+            .padding(4.dp)
+            .border(1.dp, Color.Gray),
         contentAlignment = Alignment.BottomCenter
     ) {
         AsyncImage(
@@ -250,47 +299,62 @@ fun ListItem(makanan: Makanan, onDeleteClick: () -> Unit = {}) {
                 .data(MakananApi.getMakananUrl(makanan.imageId))
                 .crossfade(true)
                 .build(),
-            contentDescription = stringResource(R.string.gambar, makanan.nama),
+            contentDescription = stringResource(R.string.gambar, makanan.title),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
             error = painterResource(id = R.drawable.baseline_broken_image_24),
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
         )
         Column(
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
                 .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
                 .padding(4.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(
-                ) {
-                    Text(
-                        text = makanan.nama,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = makanan.namaLatin,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
-                }
-                if (makanan.mine == "1") {
-                    IconButton(onClick = { onDeleteClick() }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(id = R.string.hapus)
-                        )
-                    }
-                }
+            Text(
+                text = makanan.title,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Text(
+                text = makanan.author,
+                fontStyle = FontStyle.Italic,
+                fontSize = 14.sp,
+                color = Color.White
+            )
+            Text(
+                text = makanan.publisher,
+                fontStyle = FontStyle.Normal,
+                fontSize = 14.sp,
+                color = Color.White
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onDeleteClick() }) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(id = R.string.hapus),
+                    tint = Color.White
+                )
+            }
+            IconButton(onClick = { onEditClick() }) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = stringResource(id = R.string.edit),
+                    tint = Color.White
+                )
             }
         }
     }
 }
+
 
 private suspend fun signIn(context: Context, dataStore: UserDataStore) {
     val googleIdOption: GetGoogleIdOption = GetGoogleIdOption.Builder()

@@ -30,23 +30,29 @@ class MainViewModel : ViewModel() {
     fun retrieveData(userId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             status.value = ApiStatus.LOADING
+            Log.d("MainViewModel", "Attempting to retrieve data for userId: $userId")
             try {
                 data.value = MakananApi.service.getMakanan(userId)
                 status.value = ApiStatus.SUCCESS
+                Log.d("MainViewModel", "Data retrieval SUCCESS. Total items: " +
+                        "${data.value.size}")
             } catch (e: Exception) {
-                Log.d("MainViewModel", "Failure: ${e.message}")
+                Log.e("MainViewModel", "Data retrieval FAILED: ${e.message}", e)
                 status.value = ApiStatus.FAILED
             }
         }
     }
 
-    fun saveData(userId: String, nama: String, namaLatin: String, bitmap: Bitmap) {
+    fun saveData(userId: String, title: String, author: String, publisher: String, year: String,
+                 bitmap: Bitmap) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = MakananApi.service.postMakanan(
                     userId,
-                    nama.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    namaLatin.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    title.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    author.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    publisher.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    year.toRequestBody("text/plain".toMediaTypeOrNull()),
                     bitmap.toMultipartBody()
                 )
 
@@ -60,6 +66,35 @@ class MainViewModel : ViewModel() {
             }
         }
     }
+
+    fun updateData(userId: String, id: String, title: String, author: String, publisher: String,
+                   year: String, bitmap: Bitmap?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val imagePart = bitmap?.toMultipartBody()
+                val result = MakananApi.service.updateMakanan(
+                    userId,
+                    id.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    title.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    author.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    publisher.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    year.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    imagePart
+                )
+
+                if (result.status == "success") {
+                    Log.d("MainViewModel", "Update successful, retrieving data...")
+                    retrieveData(userId)
+                } else {
+                    throw Exception(result.message)
+                }
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Failure: ${e.message}")
+                errorMessage.value = "Error: ${e.message}"
+            }
+        }
+    }
+
 
     private fun Bitmap.toMultipartBody(): MultipartBody.Part {
         val stream = ByteArrayOutputStream()

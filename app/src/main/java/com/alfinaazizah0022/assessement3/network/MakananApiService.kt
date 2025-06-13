@@ -16,7 +16,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Query
 
-private const val BASE_URL = "https://gh.d3ifcool.org/"
+private const val BASE_URL = "https://store.sthresearch.site/"
 
 private val moshi = Moshi.Builder()
     .add(KotlinJsonAdapterFactory())
@@ -28,24 +28,38 @@ private val retrofit = Retrofit.Builder()
     .build()
 
 interface MakananApiService {
-    @GET("hewan.php")
+    @GET("book.php")
     suspend fun getMakanan(
         @Header("Authorization") userId: String
     ): List<Makanan>
 
     @Multipart
-    @POST("hewan.php")
+    @POST("book.php")
     suspend fun postMakanan(
         @Header("Authorization") userId: String,
-        @Part("nama") nama: RequestBody,
-        @Part("namaLatin") namaLatin: RequestBody,
+        @Part("title") nama: RequestBody,
+        @Part("author") penulis: RequestBody,
+        @Part("publisher") penerbit: RequestBody,
+        @Part("year") year: RequestBody,
         @Part image: MultipartBody.Part
     ): OpStatus
 
-    @DELETE("hewan.php")
+    @DELETE("book.php")
     suspend fun deleteMakanan(
         @Header("Authorization") userId: String,
         @Query("id") id: String
+    ): OpStatus
+
+    @Multipart
+    @POST("book.php")
+    suspend fun updateMakanan(
+        @Header("Authorization") userId: String,
+        @Part("id") id: RequestBody,
+        @Part("title") nama: RequestBody,
+        @Part("author") penulis: RequestBody,
+        @Part("publisher") penerbit: RequestBody,
+        @Part("year") year: RequestBody,
+        @Part image: MultipartBody.Part?
     ): OpStatus
 }
 
